@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="一口一停">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
   <title>一口一停 · 进食节奏计数器</title>
 </head>
 <body>
@@ -115,6 +115,7 @@
     <form id="template-form">
       <div class="dialog-heading"><div><p class="eyebrow">COUNTER</p><h2 id="template-dialog-title">新建计数器</h2></div><button class="icon-close" type="button" data-close-template>×</button></div>
       <label class="field"><span>模板名称</span><input id="template-name" type="text" maxlength="30" required placeholder="例如：正餐"></label>
+      <label class="field"><span>主题色号</span><span class="color-code-field"><i id="template-color-preview" aria-hidden="true"></i><input id="template-color" type="text" maxlength="7" required pattern="#[0-9A-Fa-f]{6}" placeholder="#315F4B" autocapitalize="characters" spellcheck="false"></span><small>请输入六位十六进制色号，例如 #E58B55</small></label>
       <div class="stage-heading"><h3>进食阶段</h3><button id="add-stage" type="button">＋ 新增阶段</button></div>
       <div class="stage-editor-list" id="stage-editor-list"></div>
       <label class="toggle-row"><input id="allow-append" type="checkbox"><span>完成全部阶段后允许继续追加</span></label>
@@ -160,7 +161,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
   <script>if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});</script>
 </body>
 </html>

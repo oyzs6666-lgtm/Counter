@@ -2,7 +2,7 @@ const STORAGE_KEY = 'bite-rhythm.app.v1';
 
 const DEFAULT_TEMPLATES = [
   {
-    id: 'meal-default', name: '正餐', allowAppend: true, appendBites: 3, appendWaitSeconds: 300,
+    id: 'meal-default', name: '正餐', color: '#315F4B', allowAppend: true, appendBites: 3, appendWaitSeconds: 300,
     stages: [
       { id: 'm1', bites: 5, waitSeconds: 300 },
       { id: 'm2', bites: 3, waitSeconds: 300 },
@@ -10,7 +10,7 @@ const DEFAULT_TEMPLATES = [
     ]
   },
   {
-    id: 'snack-default', name: '零食', allowAppend: false, appendBites: 3, appendWaitSeconds: 300,
+    id: 'snack-default', name: '零食', color: '#D99450', allowAppend: false, appendBites: 3, appendWaitSeconds: 300,
     stages: [{ id: 's1', bites: 4, waitSeconds: 180 }, { id: 's2', bites: 3, waitSeconds: 300 }]
   }
 ];
@@ -32,7 +32,7 @@ const el = {
   views: [...document.querySelectorAll('.view')], navButtons: [...document.querySelectorAll('.nav-button')],
   todayTotalCalories: document.querySelector('#today-total-calories'), todayMealCount: document.querySelector('#today-meal-count'), todayBiteCount: document.querySelector('#today-bite-count'), todayRecordCount: document.querySelector('#today-record-count'), todayRecords: document.querySelector('#today-records'),
   templatePickerPanel: document.querySelector('#template-picker-panel'), templatePickerLead: document.querySelector('#template-picker-lead'), cancelAddSession: document.querySelector('#cancel-add-session'), startTemplateList: document.querySelector('#start-template-list'), sessionPanel: document.querySelector('#session-panel'), sessionTabs: document.querySelector('#session-tabs'), addSession: document.querySelector('#add-session'), sessionTemplateName: document.querySelector('#session-template-name'), sessionStageLabel: document.querySelector('#session-stage-label'), sessionTotalBites: document.querySelector('#session-total-bites'), counterZone: document.querySelector('#counter-zone'), counterStatus: document.querySelector('#counter-status'), currentBites: document.querySelector('#current-bites'), stageBiteLimit: document.querySelector('#stage-bite-limit'), biteButton: document.querySelector('#bite-button'), waitingZone: document.querySelector('#waiting-zone'), waitingLabel: document.querySelector('#waiting-label'), countdown: document.querySelector('#countdown'), nextStageButton: document.querySelector('#next-stage-button'), undoBite: document.querySelector('#undo-bite'), editBites: document.querySelector('#edit-bites'), pauseSession: document.querySelector('#pause-session'), skipWait: document.querySelector('#skip-wait'), sessionBack: document.querySelector('#session-back'), sessionEnd: document.querySelector('#session-end'),
-  templateManageList: document.querySelector('#template-manage-list'), newTemplate: document.querySelector('#new-template'), templateDialog: document.querySelector('#template-dialog'), templateForm: document.querySelector('#template-form'), templateDialogTitle: document.querySelector('#template-dialog-title'), templateName: document.querySelector('#template-name'), stageEditorList: document.querySelector('#stage-editor-list'), addStage: document.querySelector('#add-stage'), allowAppend: document.querySelector('#allow-append'), appendSettings: document.querySelector('#append-settings'), appendBites: document.querySelector('#append-bites'), appendWait: document.querySelector('#append-wait'),
+  templateManageList: document.querySelector('#template-manage-list'), newTemplate: document.querySelector('#new-template'), templateDialog: document.querySelector('#template-dialog'), templateForm: document.querySelector('#template-form'), templateDialogTitle: document.querySelector('#template-dialog-title'), templateName: document.querySelector('#template-name'), templateColor: document.querySelector('#template-color'), templateColorPreview: document.querySelector('#template-color-preview'), stageEditorList: document.querySelector('#stage-editor-list'), addStage: document.querySelector('#add-stage'), allowAppend: document.querySelector('#allow-append'), appendSettings: document.querySelector('#append-settings'), appendBites: document.querySelector('#append-bites'), appendWait: document.querySelector('#append-wait'),
   finishDialog: document.querySelector('#finish-dialog'), finishForm: document.querySelector('#finish-form'), finishAutoSummary: document.querySelector('#finish-auto-summary'), finishFood: document.querySelector('#finish-food'), finishCalories: document.querySelector('#finish-calories'), finishNotes: document.querySelector('#finish-notes'),
   bitesDialog: document.querySelector('#bites-dialog'), bitesForm: document.querySelector('#bites-form'), bitesInputLabel: document.querySelector('#bites-input-label'), bitesInput: document.querySelector('#bites-input'),
   recordDialog: document.querySelector('#record-dialog'), recordForm: document.querySelector('#record-form'), recordFood: document.querySelector('#record-food'), recordBites: document.querySelector('#record-bites'), recordCalories: document.querySelector('#record-calories'), recordStart: document.querySelector('#record-start'), recordEnd: document.querySelector('#record-end'), recordNotes: document.querySelector('#record-notes'),
@@ -42,6 +42,9 @@ const el = {
 
 function deepCopy(value) { return JSON.parse(JSON.stringify(value)); }
 function uid(prefix = 'id') { return crypto.randomUUID?.() || `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+function normalizeColor(value, fallback='#315F4B') { const text=String(value||'').trim(); return /^#[0-9a-f]{6}$/i.test(text)?text.toUpperCase():fallback; }
+function colorAlpha(value,alpha=.14){const hex=normalizeColor(value).slice(1);return `rgba(${parseInt(hex.slice(0,2),16)},${parseInt(hex.slice(2,4),16)},${parseInt(hex.slice(4,6),16)},${alpha})`;}
+function templateColor(template){return normalizeColor(template?.color,template?.id==='snack-default'?'#D99450':'#315F4B');}
 function loadState() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -112,7 +115,8 @@ function renderStart() {
   if (showPicker) {
     el.startTemplateList.innerHTML=state.templates.length?state.templates.map(template=>{
       const active=sessions.find(item=>item.templateId===template.id);
-      return `<button class="template-start-card${active?' is-running':''}" type="button" ${active?`data-select-session="${active.id}"`:`data-start-template="${template.id}"`}><strong>${escapeHtml(template.name)}${active?' · 进行中':''}</strong><span>${active?`已累计 ${active.totalBites}口，点击切换`:`${template.stages.length}个阶段<br>${escapeHtml(templateSummary(template))}`}</span></button>`;
+      const color=templateColor(template);
+      return `<button class="template-start-card${active?' is-running':''}" style="--template-color:${color};--template-soft:${colorAlpha(color)}" type="button" ${active?`data-select-session="${active.id}"`:`data-start-template="${template.id}"`}><strong>${escapeHtml(template.name)}${active?' · 进行中':''}</strong><span>${active?`已累计 ${active.totalBites}口，点击切换`:`${template.stages.length}个阶段<br>${escapeHtml(templateSummary(template))}`}</span></button>`;
     }).join(''):'<div class="empty-state">还没有计数器。<br>请先到“计数器”页面新建一个。</div>';
   }
   if (session) { renderSessionTabs(); renderSession(); }
@@ -122,13 +126,13 @@ function startSession(templateId) {
   const template = state.templates.find(t=>t.id===templateId); if (!template || !template.stages.length) return;
   const existing=state.activeSessions.find(item=>item.templateId===templateId);
   if (existing) { selectedSessionId=existing.id; addingSession=false; renderStart(); return showToast('这个计数器已经在进行中'); }
-  const session={ id: uid('session'), templateId: template.id, templateName: template.name, stages: deepCopy(template.stages), allowAppend: !!template.allowAppend, appendBites: Number(template.appendBites)||3, appendWaitSeconds: Number(template.appendWaitSeconds)||0, currentStageIndex:0, currentBites:0, totalBites:0, completedStages:0, status:'counting', paused:false, waitEndAt:null, waitRemainingMs:null, startedAt:new Date().toISOString() };
+  const session={ id: uid('session'), templateId: template.id, templateName: template.name, color:templateColor(template), stages: deepCopy(template.stages), allowAppend: !!template.allowAppend, appendBites: Number(template.appendBites)||3, appendWaitSeconds: Number(template.appendWaitSeconds)||0, currentStageIndex:0, currentBites:0, totalBites:0, completedStages:0, status:'counting', paused:false, waitEndAt:null, waitRemainingMs:null, startedAt:new Date().toISOString() };
   state.activeSessions.push(session); selectedSessionId=session.id; addingSession=false;
   saveState(); renderStart(); startTicker();
 }
 function selectSession(id) { if (!state.activeSessions.some(item=>item.id===id)) return; selectedSessionId=id; addingSession=false; renderStart(); }
 function renderSessionTabs() {
-  el.sessionTabs.innerHTML=state.activeSessions.map(session=>`<button class="session-tab${session.id===selectedSessionId?' is-active':''}" type="button" data-session-id="${session.id}"><strong>${escapeHtml(session.templateName)}</strong><span>${session.status==='waiting'?'等待中':session.status==='ready'?'可继续':session.paused?'已暂停':`累计 ${session.totalBites}口`}</span></button>`).join('');
+  el.sessionTabs.innerHTML=state.activeSessions.map(session=>{const color=normalizeColor(session.color,templateColor(state.templates.find(t=>t.id===session.templateId)));return `<button class="session-tab${session.id===selectedSessionId?' is-active':''}" style="--session-tab-color:${color}" type="button" data-session-id="${session.id}"><strong>${escapeHtml(session.templateName)}</strong><span>${session.status==='waiting'?'等待中':session.status==='ready'?'可继续':session.paused?'已暂停':`累计 ${session.totalBites}口`}</span></button>`;}).join('');
 }
 function currentStage(session=currentSession()) { return session?.stages[session.currentStageIndex] || null; }
 function addBite() {
@@ -162,6 +166,7 @@ function formatCountdown(ms) { const seconds=Math.max(0,Math.ceil(ms/1000)); ret
 function startTicker() { clearInterval(countdownTimer); countdownTimer=setInterval(updateCountdown,250); updateCountdown(); }
 function renderSession() {
   const s=currentSession(), stage=currentStage(s); if (!s || !stage) return;
+  const color=normalizeColor(s.color,templateColor(state.templates.find(t=>t.id===s.templateId)));el.sessionPanel.style.setProperty('--session-color',color);el.sessionPanel.style.setProperty('--session-shadow',colorAlpha(color,.3));
   el.sessionTemplateName.textContent=s.templateName; el.sessionStageLabel.textContent=`第${s.currentStageIndex+1}阶段`; el.sessionTotalBites.textContent=s.totalBites; el.currentBites.textContent=s.currentBites; el.stageBiteLimit.textContent=stage.bites;
   const waiting=s.status==='waiting'||s.status==='ready'; el.counterZone.hidden=waiting; el.waitingZone.hidden=!waiting;
   el.biteButton.disabled=s.paused; el.counterStatus.textContent=s.paused?'已暂停':`最多${stage.bites}口`;
@@ -220,12 +225,12 @@ function saveFinishedSession(event) {
 }
 
 function renderTemplates() {
-  el.templateManageList.innerHTML=state.templates.length?state.templates.map(template=>`<article class="template-manage-card"><header><h3>${escapeHtml(template.name)}</h3><span>${template.stages.length}阶段</span></header><p>${escapeHtml(templateSummary(template))}${template.allowAppend?' · 可继续追加':''}</p><div class="card-actions"><button type="button" data-edit-template="${template.id}">编辑</button><button type="button" data-copy-template="${template.id}">复制</button><button class="danger" type="button" data-delete-template="${template.id}">删除</button></div></article>`).join(''):'<div class="empty-state">还没有计数器，点击右上角＋创建。</div>';
+  el.templateManageList.innerHTML=state.templates.length?state.templates.map(template=>`<article class="template-manage-card" style="border-left:6px solid ${templateColor(template)}"><header><h3>${escapeHtml(template.name)}</h3><span>${template.stages.length}阶段</span></header><p>${escapeHtml(templateSummary(template))}${template.allowAppend?' · 可继续追加':''}</p><div class="card-actions"><button type="button" data-edit-template="${template.id}">编辑</button><button type="button" data-copy-template="${template.id}">复制</button><button class="danger" type="button" data-delete-template="${template.id}">删除</button></div></article>`).join(''):'<div class="empty-state">还没有计数器，点击右上角＋创建。</div>';
 }
 function openTemplateDialog(templateId=null) {
   editingTemplateId=templateId; const original=state.templates.find(t=>t.id===templateId);
-  templateDraft=original?deepCopy(original):{ id:uid('template'), name:'', stages:[{id:uid('stage'),bites:5,waitSeconds:300}], allowAppend:false, appendBites:3, appendWaitSeconds:300 };
-  el.templateDialogTitle.textContent=original?'编辑计数器':'新建计数器'; el.templateName.value=templateDraft.name; el.allowAppend.checked=templateDraft.allowAppend; el.appendBites.value=templateDraft.appendBites; el.appendWait.value=templateDraft.appendWaitSeconds/60; renderStageEditor(); el.templateDialog.showModal();
+  templateDraft=original?deepCopy(original):{ id:uid('template'), name:'', color:'#315F4B', stages:[{id:uid('stage'),bites:5,waitSeconds:300}], allowAppend:false, appendBites:3, appendWaitSeconds:300 };
+  templateDraft.color=templateColor(templateDraft);el.templateDialogTitle.textContent=original?'编辑计数器':'新建计数器'; el.templateName.value=templateDraft.name;el.templateColor.value=templateDraft.color;updateColorPreview();el.allowAppend.checked=templateDraft.allowAppend;el.appendBites.value=templateDraft.appendBites;el.appendWait.value=templateDraft.appendWaitSeconds/60;renderStageEditor();el.templateDialog.showModal();
 }
 function renderStageEditor() {
   el.appendSettings.hidden=!el.allowAppend.checked;
@@ -233,14 +238,15 @@ function renderStageEditor() {
 }
 function saveTemplate(event) {
   event.preventDefault(); syncTemplateDraft();
-  if (!templateDraft.name.trim()) return showToast('请填写模板名称'); if (!templateDraft.stages.length) return showToast('至少需要一个阶段');
+  if (!templateDraft.name.trim()) return showToast('请填写模板名称');if(!/^#[0-9A-F]{6}$/.test(templateDraft.color))return showToast('请输入正确的六位色号');if (!templateDraft.stages.length) return showToast('至少需要一个阶段');
   const invalid=templateDraft.stages.some(s=>!Number.isFinite(s.bites)||s.bites<1||!Number.isFinite(s.waitSeconds)||s.waitSeconds<0); if(invalid)return showToast('请检查阶段口数和等待时间');
-  const index=state.templates.findIndex(t=>t.id===editingTemplateId); if(index>=0)state.templates[index]=templateDraft; else state.templates.push(templateDraft); saveState(); el.templateDialog.close(); renderTemplates(); showToast('计数器已保存');
+  const index=state.templates.findIndex(t=>t.id===editingTemplateId);if(index>=0)state.templates[index]=templateDraft;else state.templates.push(templateDraft);state.activeSessions.filter(s=>s.templateId===templateDraft.id).forEach(s=>{s.color=templateDraft.color;s.templateName=templateDraft.name;});saveState();el.templateDialog.close();renderTemplates();showToast('计数器已保存');
 }
 function syncTemplateDraft() {
-  templateDraft.name=el.templateName.value.trim(); templateDraft.allowAppend=el.allowAppend.checked; templateDraft.appendBites=Math.max(1,Number(el.appendBites.value)||3); templateDraft.appendWaitSeconds=Math.max(0,Number(el.appendWait.value)||0)*60;
+  templateDraft.name=el.templateName.value.trim();templateDraft.color=String(el.templateColor.value||'').trim().toUpperCase();templateDraft.allowAppend=el.allowAppend.checked;templateDraft.appendBites=Math.max(1,Number(el.appendBites.value)||3);templateDraft.appendWaitSeconds=Math.max(0,Number(el.appendWait.value)||0)*60;
   [...el.stageEditorList.querySelectorAll('[data-stage-id]')].forEach(row=>{ const stage=templateDraft.stages.find(s=>s.id===row.dataset.stageId); if(stage){ stage.bites=Number(row.querySelector('[data-stage-field="bites"]').value); stage.waitSeconds=Math.max(0,Number(row.querySelector('[data-stage-field="wait"]').value)||0)*60; }});
 }
+function updateColorPreview(){const color=normalizeColor(el.templateColor.value,'#C8C8C8');el.templateColorPreview.style.setProperty('--preview-color',color);}
 function stageAction(action,id) { syncTemplateDraft(); const index=templateDraft.stages.findIndex(s=>s.id===id); if(index<0)return; if(action==='remove'){ if(templateDraft.stages.length===1)return showToast('至少保留一个阶段'); templateDraft.stages.splice(index,1); } if(action==='up'&&index>0)[templateDraft.stages[index-1],templateDraft.stages[index]]=[templateDraft.stages[index],templateDraft.stages[index-1]]; if(action==='down'&&index<templateDraft.stages.length-1)[templateDraft.stages[index+1],templateDraft.stages[index]]=[templateDraft.stages[index],templateDraft.stages[index+1]]; renderStageEditor(); }
 function copyTemplate(id) { const source=state.templates.find(t=>t.id===id); if(!source)return; const copy=deepCopy(source); copy.id=uid('template'); copy.name=`${copy.name} 副本`; copy.stages.forEach(s=>s.id=uid('stage')); state.templates.push(copy); saveState(); renderTemplates(); showToast('已复制计数器'); }
 function deleteTemplate(id) { const t=state.templates.find(t=>t.id===id); if(!t||!confirm(`删除计数器“${t.name}”？已有饮食记录不会被删除。`))return; state.templates=state.templates.filter(t=>t.id!==id); saveState(); renderTemplates(); }
@@ -273,7 +279,7 @@ el.biteButton.addEventListener('click',addBite);el.undoBite.addEventListener('cl
 el.bitesForm.addEventListener('submit',saveCurrentBites);document.querySelectorAll('[data-close-bites]').forEach(b=>b.addEventListener('click',()=>el.bitesDialog.close()));
 el.finishForm.addEventListener('submit',saveFinishedSession);document.querySelectorAll('[data-cancel-finish]').forEach(b=>b.addEventListener('click',()=>el.finishDialog.close()));
 el.newTemplate.addEventListener('click',()=>openTemplateDialog());el.templateManageList.addEventListener('click',e=>{const edit=e.target.closest('[data-edit-template]'),copy=e.target.closest('[data-copy-template]'),del=e.target.closest('[data-delete-template]');if(edit)openTemplateDialog(edit.dataset.editTemplate);if(copy)copyTemplate(copy.dataset.copyTemplate);if(del)deleteTemplate(del.dataset.deleteTemplate);});
-el.addStage.addEventListener('click',()=>{syncTemplateDraft();templateDraft.stages.push({id:uid('stage'),bites:3,waitSeconds:300});renderStageEditor();});el.stageEditorList.addEventListener('click',e=>{const button=e.target.closest('[data-stage-action]'),row=e.target.closest('[data-stage-id]');if(button&&row)stageAction(button.dataset.stageAction,row.dataset.stageId);});el.allowAppend.addEventListener('change',()=>{el.appendSettings.hidden=!el.allowAppend.checked;});el.templateForm.addEventListener('submit',saveTemplate);document.querySelectorAll('[data-close-template]').forEach(b=>b.addEventListener('click',()=>el.templateDialog.close()));
+el.addStage.addEventListener('click',()=>{syncTemplateDraft();templateDraft.stages.push({id:uid('stage'),bites:3,waitSeconds:300});renderStageEditor();});el.stageEditorList.addEventListener('click',e=>{const button=e.target.closest('[data-stage-action]'),row=e.target.closest('[data-stage-id]');if(button&&row)stageAction(button.dataset.stageAction,row.dataset.stageId);});el.allowAppend.addEventListener('change',()=>{el.appendSettings.hidden=!el.allowAppend.checked;});el.templateColor.addEventListener('input',updateColorPreview);el.templateForm.addEventListener('submit',saveTemplate);document.querySelectorAll('[data-close-template]').forEach(b=>b.addEventListener('click',()=>el.templateDialog.close()));
 el.todayRecords.addEventListener('click',handleRecordListClick);el.historyRecords.addEventListener('click',handleRecordListClick);el.recordForm.addEventListener('submit',saveEditedRecord);document.querySelectorAll('[data-close-record]').forEach(b=>b.addEventListener('click',()=>el.recordDialog.close()));
 el.historyPrev.addEventListener('click',()=>moveHistoryDay(-1));el.historyNext.addEventListener('click',()=>moveHistoryDay(1));el.historyDate.addEventListener('change',()=>{if(el.historyDate.value){historyDate=el.historyDate.value;renderHistory();}});el.metricTabs.addEventListener('click',e=>{const b=e.target.closest('[data-metric]');if(!b)return;historyMetric=b.dataset.metric;[...el.metricTabs.children].forEach(x=>x.classList.toggle('is-active',x===b));renderTrendChart();});
 window.addEventListener('resize',()=>{if(currentView==='history')renderTrendChart();});document.addEventListener('visibilitychange',()=>{if(!document.hidden){updateCountdown();renderToday();}});
