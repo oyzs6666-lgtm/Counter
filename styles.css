@@ -58,6 +58,18 @@ h3 { margin: 0; font-size: .9rem; }
 .template-start-card strong { display: block; margin-bottom: 22px; font-family: Georgia, serif; font-size: 1.35rem; }
 .template-start-card span { color: var(--muted); font-size: .72rem; line-height: 1.45; }
 .session-panel { min-height: calc(100dvh - 140px); }
+.picker-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.multi-session-bar { display:flex; align-items:stretch; gap:8px; margin-bottom:16px; }
+.session-tabs { display:flex; gap:7px; min-width:0; overflow-x:auto; scrollbar-width:none; flex:1; padding:1px; }
+.session-tabs::-webkit-scrollbar { display:none; }
+.session-tab { flex:0 0 auto; min-width:92px; padding:9px 12px; border:1px solid var(--line); border-radius:16px; background:var(--card); color:var(--muted); text-align:left; }
+.session-tab strong,.session-tab span { display:block; }
+.session-tab strong { color:var(--ink); font-size:13px; margin-bottom:2px; }
+.session-tab span { font-size:11px; }
+.session-tab.is-active { background:var(--ink); border-color:var(--ink); }
+.session-tab.is-active strong,.session-tab.is-active span { color:#fff; }
+.add-session-button { flex:0 0 auto; border:1px solid var(--line); border-radius:16px; background:var(--card); padding:0 12px; font-weight:800; color:var(--green); }
+.template-start-card.is-running { border-color:var(--green); background:var(--green-soft); }
 .session-topline { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin-bottom: 18px; }
 .session-topline > span { font-weight: 800; text-align: center; }
 .session-topline button:last-child { justify-self: end; }

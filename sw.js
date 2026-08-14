@@ -1,5 +1,5 @@
-const CACHE_NAME = 'bite-counter-v2';
-const ASSETS = ['./', './index.html', './styles.css?v=2', './app.js?v=2', './manifest.json'];
+const CACHE_NAME = 'bite-counter-v4';
+const ASSETS = ['./', './index.html', './styles.css?v=4', './app.js?v=4', './manifest.json'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));

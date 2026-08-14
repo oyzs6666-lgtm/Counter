@@ -24,12 +24,14 @@ let templateDraft = null;
 let editingRecordId = null;
 let countdownTimer = null;
 let toastTimer = null;
+let selectedSessionId = state.activeSessions[0]?.id || null;
+let addingSession = false;
 
 const el = {
   pageEyebrow: document.querySelector('#page-eyebrow'), pageTitle: document.querySelector('#page-title'), headerDate: document.querySelector('#header-date'),
   views: [...document.querySelectorAll('.view')], navButtons: [...document.querySelectorAll('.nav-button')],
   todayTotalCalories: document.querySelector('#today-total-calories'), todayMealCount: document.querySelector('#today-meal-count'), todayBiteCount: document.querySelector('#today-bite-count'), todayRecordCount: document.querySelector('#today-record-count'), todayRecords: document.querySelector('#today-records'),
-  templatePickerPanel: document.querySelector('#template-picker-panel'), startTemplateList: document.querySelector('#start-template-list'), sessionPanel: document.querySelector('#session-panel'), sessionTemplateName: document.querySelector('#session-template-name'), sessionStageLabel: document.querySelector('#session-stage-label'), sessionTotalBites: document.querySelector('#session-total-bites'), counterZone: document.querySelector('#counter-zone'), counterStatus: document.querySelector('#counter-status'), currentBites: document.querySelector('#current-bites'), stageBiteLimit: document.querySelector('#stage-bite-limit'), biteButton: document.querySelector('#bite-button'), waitingZone: document.querySelector('#waiting-zone'), waitingLabel: document.querySelector('#waiting-label'), countdown: document.querySelector('#countdown'), nextStageButton: document.querySelector('#next-stage-button'), undoBite: document.querySelector('#undo-bite'), editBites: document.querySelector('#edit-bites'), pauseSession: document.querySelector('#pause-session'), skipWait: document.querySelector('#skip-wait'), sessionBack: document.querySelector('#session-back'), sessionEnd: document.querySelector('#session-end'),
+  templatePickerPanel: document.querySelector('#template-picker-panel'), templatePickerLead: document.querySelector('#template-picker-lead'), cancelAddSession: document.querySelector('#cancel-add-session'), startTemplateList: document.querySelector('#start-template-list'), sessionPanel: document.querySelector('#session-panel'), sessionTabs: document.querySelector('#session-tabs'), addSession: document.querySelector('#add-session'), sessionTemplateName: document.querySelector('#session-template-name'), sessionStageLabel: document.querySelector('#session-stage-label'), sessionTotalBites: document.querySelector('#session-total-bites'), counterZone: document.querySelector('#counter-zone'), counterStatus: document.querySelector('#counter-status'), currentBites: document.querySelector('#current-bites'), stageBiteLimit: document.querySelector('#stage-bite-limit'), biteButton: document.querySelector('#bite-button'), waitingZone: document.querySelector('#waiting-zone'), waitingLabel: document.querySelector('#waiting-label'), countdown: document.querySelector('#countdown'), nextStageButton: document.querySelector('#next-stage-button'), undoBite: document.querySelector('#undo-bite'), editBites: document.querySelector('#edit-bites'), pauseSession: document.querySelector('#pause-session'), skipWait: document.querySelector('#skip-wait'), sessionBack: document.querySelector('#session-back'), sessionEnd: document.querySelector('#session-end'),
   templateManageList: document.querySelector('#template-manage-list'), newTemplate: document.querySelector('#new-template'), templateDialog: document.querySelector('#template-dialog'), templateForm: document.querySelector('#template-form'), templateDialogTitle: document.querySelector('#template-dialog-title'), templateName: document.querySelector('#template-name'), stageEditorList: document.querySelector('#stage-editor-list'), addStage: document.querySelector('#add-stage'), allowAppend: document.querySelector('#allow-append'), appendSettings: document.querySelector('#append-settings'), appendBites: document.querySelector('#append-bites'), appendWait: document.querySelector('#append-wait'),
   finishDialog: document.querySelector('#finish-dialog'), finishForm: document.querySelector('#finish-form'), finishAutoSummary: document.querySelector('#finish-auto-summary'), finishFood: document.querySelector('#finish-food'), finishCalories: document.querySelector('#finish-calories'), finishNotes: document.querySelector('#finish-notes'),
   bitesDialog: document.querySelector('#bites-dialog'), bitesForm: document.querySelector('#bites-form'), bitesInputLabel: document.querySelector('#bites-input-label'), bitesInput: document.querySelector('#bites-input'),
@@ -43,11 +45,14 @@ function uid(prefix = 'id') { return crypto.randomUUID?.() || `${prefix}-${Date.
 function loadState() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (parsed && Array.isArray(parsed.templates) && Array.isArray(parsed.records)) return { templates: parsed.templates, records: parsed.records, activeSession: parsed.activeSession || null };
+    if (parsed && Array.isArray(parsed.templates) && Array.isArray(parsed.records)) {
+      const activeSessions = Array.isArray(parsed.activeSessions) ? parsed.activeSessions : parsed.activeSession ? [parsed.activeSession] : [];
+      return { templates: parsed.templates, records: parsed.records, activeSessions };
+    }
   } catch {}
-  return { templates: deepCopy(DEFAULT_TEMPLATES), records: [], activeSession: null };
+  return { templates: deepCopy(DEFAULT_TEMPLATES), records: [], activeSessions: [] };
 }
-function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify({ templates:state.templates, records:state.records, activeSessions:state.activeSessions })); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' })[c]); }
 function dateKey(value) { const d = new Date(value); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function dateFromKey(key) { const [y,m,d] = key.split('-').map(Number); return new Date(y,m-1,d); }
@@ -93,70 +98,93 @@ function templateSummary(template) {
   return template.stages.map((stage,i)=>`第${i+1}阶段 ${stage.bites}口／${formatWait(stage.waitSeconds)}`).join(' · ');
 }
 function formatWait(seconds) { if (!seconds) return '不等待'; const minutes = seconds / 60; return `${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)}分钟`; }
+function currentSession() {
+  if (!state.activeSessions.length) { selectedSessionId=null; return null; }
+  let session=state.activeSessions.find(item=>item.id===selectedSessionId);
+  if (!session) { session=state.activeSessions[0]; selectedSessionId=session.id; }
+  return session;
+}
 function renderStart() {
-  const session = state.activeSession;
-  el.templatePickerPanel.hidden = !!session; el.sessionPanel.hidden = !session;
-  if (!session) {
-    el.startTemplateList.innerHTML = state.templates.length ? state.templates.map(t=>`<button class="template-start-card" type="button" data-start-template="${t.id}"><strong>${escapeHtml(t.name)}</strong><span>${t.stages.length}个阶段<br>${escapeHtml(templateSummary(t))}</span></button>`).join('') : '<div class="empty-state">还没有计数器。<br>请先到“计数器”页面新建一个。</div>';
-  } else renderSession();
+  const sessions=state.activeSessions, session=currentSession(), showPicker=!sessions.length||addingSession;
+  el.templatePickerPanel.hidden=!showPicker; el.sessionPanel.hidden=!session;
+  el.templatePickerLead.textContent=sessions.length?'再添加一个同时进行的计数器。':'选一个计数器，开始这次进食。';
+  el.cancelAddSession.hidden=!sessions.length;
+  if (showPicker) {
+    el.startTemplateList.innerHTML=state.templates.length?state.templates.map(template=>{
+      const active=sessions.find(item=>item.templateId===template.id);
+      return `<button class="template-start-card${active?' is-running':''}" type="button" ${active?`data-select-session="${active.id}"`:`data-start-template="${template.id}"`}><strong>${escapeHtml(template.name)}${active?' · 进行中':''}</strong><span>${active?`已累计 ${active.totalBites}口，点击切换`:`${template.stages.length}个阶段<br>${escapeHtml(templateSummary(template))}`}</span></button>`;
+    }).join(''):'<div class="empty-state">还没有计数器。<br>请先到“计数器”页面新建一个。</div>';
+  }
+  if (session) { renderSessionTabs(); renderSession(); }
 }
 
 function startSession(templateId) {
   const template = state.templates.find(t=>t.id===templateId); if (!template || !template.stages.length) return;
-  state.activeSession = { id: uid('session'), templateId: template.id, templateName: template.name, stages: deepCopy(template.stages), allowAppend: !!template.allowAppend, appendBites: Number(template.appendBites)||3, appendWaitSeconds: Number(template.appendWaitSeconds)||0, currentStageIndex:0, currentBites:0, totalBites:0, completedStages:0, status:'counting', paused:false, waitEndAt:null, waitRemainingMs:null, startedAt:new Date().toISOString() };
+  const existing=state.activeSessions.find(item=>item.templateId===templateId);
+  if (existing) { selectedSessionId=existing.id; addingSession=false; renderStart(); return showToast('这个计数器已经在进行中'); }
+  const session={ id: uid('session'), templateId: template.id, templateName: template.name, stages: deepCopy(template.stages), allowAppend: !!template.allowAppend, appendBites: Number(template.appendBites)||3, appendWaitSeconds: Number(template.appendWaitSeconds)||0, currentStageIndex:0, currentBites:0, totalBites:0, completedStages:0, status:'counting', paused:false, waitEndAt:null, waitRemainingMs:null, startedAt:new Date().toISOString() };
+  state.activeSessions.push(session); selectedSessionId=session.id; addingSession=false;
   saveState(); renderStart(); startTicker();
 }
-function currentStage() { const s=state.activeSession; return s?.stages[s.currentStageIndex] || null; }
+function selectSession(id) { if (!state.activeSessions.some(item=>item.id===id)) return; selectedSessionId=id; addingSession=false; renderStart(); }
+function renderSessionTabs() {
+  el.sessionTabs.innerHTML=state.activeSessions.map(session=>`<button class="session-tab${session.id===selectedSessionId?' is-active':''}" type="button" data-session-id="${session.id}"><strong>${escapeHtml(session.templateName)}</strong><span>${session.status==='waiting'?'等待中':session.status==='ready'?'可继续':session.paused?'已暂停':`累计 ${session.totalBites}口`}</span></button>`).join('');
+}
+function currentStage(session=currentSession()) { return session?.stages[session.currentStageIndex] || null; }
 function addBite() {
-  const s=state.activeSession, stage=currentStage(); if (!s || !stage || s.paused || s.status!=='counting') return;
+  const s=currentSession(), stage=currentStage(s); if (!s || !stage || s.paused || s.status!=='counting') return;
   if (s.currentBites >= stage.bites) return;
   s.currentBites += 1; s.totalBites += 1;
+  navigator.vibrate?.(35);
   if (s.currentBites >= stage.bites) { s.completedStages = Math.max(s.completedStages,s.currentStageIndex+1); beginWait(stage.waitSeconds); }
-  saveState(); renderSession();
+  saveState(); renderStart();
 }
 function beginWait(seconds) {
-  const s=state.activeSession; if (!s) return;
+  const s=currentSession(); if (!s) return;
   const ms=Math.max(0,Number(seconds)||0)*1000;
   if (!ms) { s.status='ready'; s.waitEndAt=null; s.waitRemainingMs=0; }
   else { s.status='waiting'; s.waitEndAt=Date.now()+ms; s.waitRemainingMs=ms; }
 }
-function remainingWaitMs() {
-  const s=state.activeSession; if (!s || s.status!=='waiting') return 0;
+function remainingWaitMs(s=currentSession()) {
+  if (!s || s.status!=='waiting') return 0;
   return s.paused ? Math.max(0,Number(s.waitRemainingMs)||0) : Math.max(0,(Number(s.waitEndAt)||0)-Date.now());
 }
 function updateCountdown() {
-  const s=state.activeSession; if (!s || s.status!=='waiting') return;
-  const remaining=remainingWaitMs();
-  if (remaining<=0 && !s.paused) { s.status='ready'; s.waitEndAt=null; s.waitRemainingMs=0; saveState(); navigator.vibrate?.([120,80,120]); renderSession(); return; }
-  el.countdown.textContent = formatCountdown(remaining);
+  let changed=false;
+  state.activeSessions.forEach(session=>{
+    if(session.status==='waiting'&&!session.paused&&remainingWaitMs(session)<=0){session.status='ready';session.waitEndAt=null;session.waitRemainingMs=0;changed=true;navigator.vibrate?.([120,80,120]);}
+  });
+  if(changed){saveState();if(currentView==='start')renderStart();return;}
+  const selected=currentSession();
+  if(selected?.status==='waiting'&&currentView==='start')el.countdown.textContent=formatCountdown(remainingWaitMs(selected));
 }
 function formatCountdown(ms) { const seconds=Math.max(0,Math.ceil(ms/1000)); return `${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`; }
 function startTicker() { clearInterval(countdownTimer); countdownTimer=setInterval(updateCountdown,250); updateCountdown(); }
 function renderSession() {
-  const s=state.activeSession, stage=currentStage(); if (!s || !stage) return renderStart();
+  const s=currentSession(), stage=currentStage(s); if (!s || !stage) return;
   el.sessionTemplateName.textContent=s.templateName; el.sessionStageLabel.textContent=`第${s.currentStageIndex+1}阶段`; el.sessionTotalBites.textContent=s.totalBites; el.currentBites.textContent=s.currentBites; el.stageBiteLimit.textContent=stage.bites;
   const waiting=s.status==='waiting'||s.status==='ready'; el.counterZone.hidden=waiting; el.waitingZone.hidden=!waiting;
   el.biteButton.disabled=s.paused; el.counterStatus.textContent=s.paused?'已暂停':`最多${stage.bites}口`;
   el.pauseSession.textContent=s.paused?'继续':'暂停'; el.pauseSession.hidden=s.status==='ready'; el.skipWait.hidden=s.status!=='waiting'; el.undoBite.disabled=s.currentBites<=0; el.editBites.disabled=waiting && !s.paused;
-  if (s.status==='waiting') { el.waitingLabel.textContent=s.paused?'倒计时已暂停':'休息一下'; el.countdown.textContent=formatCountdown(remainingWaitMs()); el.nextStageButton.hidden=true; }
+  if (s.status==='waiting') { el.waitingLabel.textContent=s.paused?'倒计时已暂停':'休息一下'; el.countdown.textContent=formatCountdown(remainingWaitMs(s)); el.nextStageButton.hidden=true; }
   if (s.status==='ready') { el.waitingLabel.textContent='可以继续了'; el.countdown.textContent='00:00'; el.nextStageButton.hidden=false; const last=s.currentStageIndex>=s.stages.length-1; el.nextStageButton.textContent=!last?'进入下一阶段':s.allowAppend?'追加阶段':'结束并保存'; }
 }
 function togglePause() {
-  const s=state.activeSession; if (!s || s.status==='ready') return;
+  const s=currentSession(); if (!s || s.status==='ready') return;
   if (!s.paused) {
     const remaining = s.status==='waiting' ? Math.max(0,(Number(s.waitEndAt)||0)-Date.now()) : 0;
     s.paused=true;
     if (s.status==='waiting') { s.waitRemainingMs=remaining; s.waitEndAt=null; }
   }
   else { s.paused=false; if (s.status==='waiting') s.waitEndAt=Date.now()+(Number(s.waitRemainingMs)||0); }
-  saveState(); renderSession();
+  saveState(); renderStart();
 }
 function undoBite() {
-  const s=state.activeSession; if (!s || s.currentBites<=0) return;
-  s.currentBites-=1; s.totalBites=Math.max(0,s.totalBites-1); s.completedStages=Math.min(s.completedStages,s.currentStageIndex); s.status='counting'; s.paused=false; s.waitEndAt=null; s.waitRemainingMs=null; saveState(); renderSession();
+  const s=currentSession(); if (!s || s.currentBites<=0) return;
+  s.currentBites-=1; s.totalBites=Math.max(0,s.totalBites-1); s.completedStages=Math.min(s.completedStages,s.currentStageIndex); s.status='counting'; s.paused=false; s.waitEndAt=null; s.waitRemainingMs=null; saveState(); renderStart();
 }
 function editCurrentBites() {
-  const s=state.activeSession, stage=currentStage(); if (!s||!stage) return;
+  const s=currentSession(), stage=currentStage(s); if (!s||!stage) return;
   el.bitesInputLabel.textContent=`当前阶段口数（0–${stage.bites}）`;
   el.bitesInput.max=String(stage.bites);
   el.bitesInput.value=String(s.currentBites);
@@ -165,30 +193,30 @@ function editCurrentBites() {
 }
 function saveCurrentBites(event) {
   event.preventDefault();
-  const s=state.activeSession, stage=currentStage(); if (!s||!stage) return el.bitesDialog.close();
+  const s=currentSession(), stage=currentStage(s); if (!s||!stage) return el.bitesDialog.close();
   const value=Number(el.bitesInput.value); if (!Number.isInteger(value)||value<0||value>stage.bites) return showToast('请输入有效的整数口数');
   s.totalBites=Math.max(0,s.totalBites-s.currentBites+value); s.currentBites=value; s.status='counting'; s.paused=false; s.waitEndAt=null; s.waitRemainingMs=null;
   if (value>=stage.bites) { s.completedStages=Math.max(s.completedStages,s.currentStageIndex+1); beginWait(stage.waitSeconds); } else s.completedStages=Math.min(s.completedStages,s.currentStageIndex);
-  saveState(); el.bitesDialog.close(); renderSession();
+  saveState(); el.bitesDialog.close(); renderStart();
 }
-function skipWait() { const s=state.activeSession; if (!s||s.status!=='waiting') return; s.status='ready'; s.paused=false; s.waitEndAt=null; s.waitRemainingMs=0; saveState(); renderSession(); }
+function skipWait() { const s=currentSession(); if (!s||s.status!=='waiting') return; s.status='ready'; s.paused=false; s.waitEndAt=null; s.waitRemainingMs=0; saveState(); renderStart(); }
 function nextStage() {
-  const s=state.activeSession; if (!s||s.status!=='ready') return;
+  const s=currentSession(); if (!s||s.status!=='ready') return;
   if (s.currentStageIndex<s.stages.length-1) s.currentStageIndex+=1;
   else if (s.allowAppend) { s.stages.push({ id:uid('extra'), bites:s.appendBites, waitSeconds:s.appendWaitSeconds, appended:true }); s.currentStageIndex+=1; }
   else return openFinishDialog();
-  s.currentBites=0; s.status='counting'; s.paused=false; s.waitEndAt=null; s.waitRemainingMs=null; saveState(); renderSession();
+  s.currentBites=0; s.status='counting'; s.paused=false; s.waitEndAt=null; s.waitRemainingMs=null; saveState(); renderStart();
 }
-function discardSession() { if (!state.activeSession||!confirm('退出后，这次尚未保存的计数会丢失。确定退出吗？')) return; state.activeSession=null; saveState(); renderStart(); }
+function discardSession() { const s=currentSession();if(!s||!confirm(`退出“${s.templateName}”后，这一项尚未保存的计数会丢失。确定退出吗？`))return;state.activeSessions=state.activeSessions.filter(item=>item.id!==s.id);selectedSessionId=state.activeSessions[0]?.id||null;addingSession=false;saveState();renderStart(); }
 function openFinishDialog() {
-  const s=state.activeSession; if (!s) return;
+  const s=currentSession(); if (!s) return;
   const end=new Date(); el.finishAutoSummary.innerHTML=`<div><span>计数器</span><strong>${escapeHtml(s.templateName)}</strong></div><div><span>总口数</span><strong>${s.totalBites}口</strong></div><div><span>完成阶段</span><strong>${s.completedStages}个</strong></div><div><span>时间</span><strong>${formatTime(s.startedAt)}–${formatTime(end)}</strong></div>`;
   el.finishFood.value=''; el.finishCalories.value=''; el.finishNotes.value=''; el.finishDialog.showModal();
 }
 function saveFinishedSession(event) {
-  event.preventDefault(); const s=state.activeSession; if (!s) return el.finishDialog.close();
+  event.preventDefault(); const s=currentSession(); if (!s) return el.finishDialog.close();
   const record={ id:uid('record'), startAt:s.startedAt, endAt:new Date().toISOString(), templateId:s.templateId, templateName:s.templateName, totalBites:s.totalBites, completedStages:s.completedStages, food:el.finishFood.value.trim(), calories:Math.max(0,Number(el.finishCalories.value)||0), notes:el.finishNotes.value.trim() };
-  state.records.push(record); state.activeSession=null; saveState(); el.finishDialog.close(); showView('today'); showToast('饮食记录已保存');
+  state.records.push(record); state.activeSessions=state.activeSessions.filter(item=>item.id!==s.id);selectedSessionId=state.activeSessions[0]?.id||null;addingSession=false;saveState();el.finishDialog.close();showView(state.activeSessions.length?'start':'today');showToast(`${s.templateName}记录已保存`);
 }
 
 function renderTemplates() {
@@ -238,7 +266,9 @@ function deleteRecord(id) { const r=state.records.find(r=>r.id===id);if(!r||!con
 function handleRecordListClick(event) { const del=event.target.closest('[data-delete-record]');if(del)return deleteRecord(del.dataset.deleteRecord);const edit=event.target.closest('[data-edit-record]');if(edit)openRecordEditor(edit.dataset.editRecord); }
 
 el.navButtons.forEach(button=>button.addEventListener('click',()=>showView(button.dataset.target)));
-el.startTemplateList.addEventListener('click',e=>{const button=e.target.closest('[data-start-template]');if(button)startSession(button.dataset.startTemplate);});
+el.startTemplateList.addEventListener('click',e=>{const start=e.target.closest('[data-start-template]'),select=e.target.closest('[data-select-session]');if(start)startSession(start.dataset.startTemplate);if(select)selectSession(select.dataset.selectSession);});
+el.sessionTabs.addEventListener('click',e=>{const button=e.target.closest('[data-session-id]');if(button)selectSession(button.dataset.sessionId);});
+el.addSession.addEventListener('click',()=>{addingSession=true;renderStart();window.scrollTo(0,0);});el.cancelAddSession.addEventListener('click',()=>{addingSession=false;renderStart();});
 el.biteButton.addEventListener('click',addBite);el.undoBite.addEventListener('click',undoBite);el.editBites.addEventListener('click',editCurrentBites);el.pauseSession.addEventListener('click',togglePause);el.skipWait.addEventListener('click',skipWait);el.nextStageButton.addEventListener('click',nextStage);el.sessionBack.addEventListener('click',discardSession);el.sessionEnd.addEventListener('click',openFinishDialog);
 el.bitesForm.addEventListener('submit',saveCurrentBites);document.querySelectorAll('[data-close-bites]').forEach(b=>b.addEventListener('click',()=>el.bitesDialog.close()));
 el.finishForm.addEventListener('submit',saveFinishedSession);document.querySelectorAll('[data-cancel-finish]').forEach(b=>b.addEventListener('click',()=>el.finishDialog.close()));
