@@ -1,0 +1,12 @@
+{
+  "name": "一口一停 · 进食节奏计数器",
+  "short_name": "一口一停",
+  "description": "进食节奏计数与每日饮食记录",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f1eb",
+  "theme_color": "#f4f1eb",
+  "icons": []
+}
